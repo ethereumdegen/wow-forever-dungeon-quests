@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WoW Forever dungeon quests, pickup locations, and prerequisite chains. Prepare before you travel and track your quest checklist locally.">
+  <meta name="color-scheme" content="light dark">
+  <title>WoW Forever · Dungeon quest checklist</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#results">Skip to quests</a>
+  <header class="site-header" id="top">
+    <div class="eyebrow">WOW FOREVER / DUNGEON FIELD GUIDE</div>
+    <h1>Never arrive without the quest.</h1>
+    <p class="intro">Check the pickup. Finish the prerequisites. Then head to the dungeon.</p>
+    <div class="header-bottom">
+      <p id="dataset-meta">Quest checklist · Acceptance levels below 60</p>
+      <nav class="downloads" aria-label="Download guide">
+        <a href="guide.md" download>Download Markdown <span aria-hidden="true">↗</span></a>
+        <a href="quests.json" download>Quest JSON <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="source-notice" aria-labelledby="source-heading">
+    <h2 id="source-heading">Check the evidence before you travel.</h2>
+    <p>WoW Forever can differ from other versions of WoW. “None documented” is not proof that no prerequisite exists. Unknown requirements and acceptance levels remain visible; <strong>?</strong> means the minimum acceptance level is unconfirmed. Quest level is not minimum acceptance level. Follow the linked evidence and confirm uncertain steps in game.</p>
+    <details id="source-details">
+      <summary>Scope, coverage &amp; source notes</summary>
+      <div id="source-content"><p>The dataset’s source notes will appear here after loading.</p></div>
+    </details>
+  </section>
+  <p id="storage-warning" class="warning" role="status" hidden></p>
+
+  <form class="filters" id="filters" aria-label="Filter dungeon quests">
+    <fieldset id="filter-fields" disabled>
+      <legend class="sr-only">Your character and quest filters</legend>
+      <div class="filter-grid">
+        <label class="search-field" for="search">Search the guide
+          <input id="search" type="search" placeholder="Quest, pickup, prerequisite…" autocomplete="off">
+        </label>
+        <label for="faction">Faction
+          <select id="faction"><option value="Alliance" selected>Alliance</option><option value="Horde">Horde</option><option value="All">All factions</option></select>
+        </label>
+        <label for="character-class">Class
+          <select id="character-class">
+            <option value="All">All classes</option><option>Druid</option><option>Hunter</option><option>Mage</option><option>Paladin</option><option>Priest</option><option>Rogue</option><option>Shaman</option><option selected>Warlock</option><option>Warrior</option>
+          </select>
+        </label>
+        <label for="max-level">Max. acceptance level
+          <input id="max-level" type="number" min="1" max="60" value="59" inputmode="numeric" aria-describedby="level-help">
+        </label>
+        <label for="dungeon">Dungeon
+          <select id="dungeon"><option value="All">All dungeons</option></select>
+        </label>
+      </div>
+      <div class="filter-options">
+        <label class="check-label"><input type="checkbox" id="required-only"> Required prerequisites only</label>
+        <label class="check-label"><input type="checkbox" id="hide-completed"> Hide completed</label>
+        <button id="reset-filters" type="button" class="text-button">Reset filters</button>
+      </div>
+      <p id="level-help" class="filter-help">Acceptance level, not quest level. Unknown minimums stay visible. Your class also includes unrestricted quests.</p>
+    </fieldset>
+  </form>
+
+  <div class="guide-layout">
+    <aside class="sidebar" aria-label="Dungeon navigation">
+      <div class="sidebar-heading">DUNGEONS <a href="#top">Back to top ↑</a></div>
+      <nav id="dungeon-nav" aria-label="Dungeon sections"><p class="muted">Loading dungeons…</p></nav>
+      <p class="local-note">Checkmarks stay in this browser, on this device. Shared quest IDs are completed across every dungeon wing.</p>
+    </aside>
+    <main id="results" tabindex="-1" aria-busy="true">
+      <div class="progress-panel">
+        <div><h2 id="results-heading">Your quest checklist</h2><p id="result-summary" role="status" aria-live="polite" tabindex="-1">Loading quest data…</p></div>
+        <div class="progress-wrap"><label id="progress-label" for="quest-progress">Matching quests completed</label><progress id="quest-progress" value="0" max="1">0%</progress></div>
+      </div>
+      <div class="legend" aria-label="Prerequisite legend">
+        <span><b class="badge required">Required</b> Finish first</span>
+        <span><b class="badge optional">Optional breadcrumb</b> Not a hard gate</span>
+        <span><b class="badge none">None documented</b> No gate found</span>
+        <span><b class="badge unknown">Unknown</b> Confirm in game</span>
+      </div>
+      <div id="load-error" class="error-panel" role="alert" hidden>
+        <h2>The quest data could not be loaded.</h2>
+        <p id="load-error-detail"></p>
+        <p>Try reloading the page, or use the <a href="guide.md">Markdown guide</a>. A local copy must be served over HTTP rather than opened as a file.</p>
+        <button id="retry-load" type="button">Try again</button>
+      </div>
+      <div id="empty-state" class="empty-state" hidden><h2>No quests match these filters.</h2><p>Try another class or dungeon, broaden your search, or show completed quests. Quests with an unknown minimum level are never excluded by the level filter.</p><button id="empty-reset" type="button">Reset filters</button></div>
+      <div id="sections"></div>
+      <noscript><p class="error-panel">JavaScript is required for the interactive checklist. Read the complete <a href="guide.md">Markdown guide</a> instead.</p></noscript>
+    </main>
+  </div>
+  <footer class="site-footer"><p>A travel checklist, not an in-game eligibility guarantee. Source links accompany every dungeon and quest.</p><p>No account, analytics, or external scripts. <a href="quests.json">Read the source dataset</a>.</p></footer>
+</body>
+</html>
