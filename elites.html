@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WoW Forever open-world elite quest chains: where to start, prerequisites to finish, recommended levels and group objectives. Includes Wetlands Dragonmaw and Dark Iron routes.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#101216">
+  <title>WoW Forever · Open-world elite quest chains</title>
+  <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script src="app.js?v=3" defer></script>
+</head>
+<body data-guide="elites">
+  <a class="skip-link" href="#results">Skip to elite chains</a>
+  <header class="site-header" id="top">
+    <div class="eyebrow">WOW FOREVER / OPEN-WORLD FIELD GUIDE</div>
+    <nav class="guide-tabs" aria-label="Choose a guide">
+      <a href="./" data-guide-link>Dungeon quests</a>
+      <a href="elites.html" data-guide-link aria-current="page">Open-world elites</a>
+    </nav>
+    <h1>Get the chain. Then get the group.</h1>
+    <p class="intro">Open-world elite routes worth planning around. Collect the lead-ins before your group starts killing.</p>
+    <div class="header-bottom">
+      <p id="dataset-meta">Elite chain checklist · Acceptance levels below 60</p>
+      <nav class="downloads" aria-label="Download elite guide">
+        <a href="elites.md" download>Download Markdown <span aria-hidden="true">↗</span></a>
+        <a href="elite-quests.json" download>Quest JSON <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+  <section class="source-notice" aria-labelledby="source-heading">
+    <h2 id="source-heading">Do the solo setup before the elite payoff.</h2>
+    <p>Each route lists its starting pickup, required earlier steps and group objectives. Heading ranges are recommended group levels, <strong>not</strong> unlock requirements. Quests may become available earlier. XP varies with your level and current tuning; this is a planning checklist, not a guaranteed XP ranking or a complete list of every elite mob.</p>
+    <details id="source-details">
+      <summary>Scope, coverage &amp; source notes</summary>
+      <div id="source-content"><p>The dataset’s source notes will appear here after loading.</p></div>
+    </details>
+  </section>
+  <p id="storage-warning" class="warning" role="status" hidden></p>
+  <form class="filters" id="filters" aria-label="Filter open-world elite quests">
+    <details id="filter-panel" open>
+      <summary>Character &amp; filters <span id="filter-summary">Alliance · Warlock · ≤59</span></summary>
+      <fieldset id="filter-fields" disabled>
+        <legend class="sr-only">Your character and quest filters</legend>
+        <div class="filter-grid">
+          <label class="search-field" for="search">Search the guide
+            <input id="search" type="search" placeholder="Wetlands, chain, pickup…" autocomplete="off">
+          </label>
+          <label for="faction">Faction
+            <select id="faction"><option value="Alliance" selected>Alliance</option><option value="Horde">Horde</option><option value="All">All factions</option></select>
+          </label>
+          <label for="character-class">Class
+            <select id="character-class"><option value="All">All classes</option><option>Druid</option><option>Hunter</option><option>Mage</option><option>Paladin</option><option>Priest</option><option>Rogue</option><option>Shaman</option><option selected>Warlock</option><option>Warrior</option></select>
+          </label>
+          <label for="max-level">Max. acceptance level
+            <input id="max-level" type="number" min="1" max="60" value="59" inputmode="numeric" aria-describedby="level-help">
+          </label>
+          <label for="dungeon">Elite chain
+            <select id="dungeon"><option value="All">All elite chains</option></select>
+          </label>
+        </div>
+        <div class="filter-options">
+          <label class="check-label"><input type="checkbox" id="required-only"> Required prerequisites only</label>
+          <label class="check-label"><input type="checkbox" id="hide-completed"> Hide completed</label>
+          <button id="reset-filters" type="button" class="text-button">Reset filters</button>
+        </div>
+        <p id="level-help" class="filter-help">Acceptance level, not recommended group level. Unknown minimums stay visible. Your class also includes unrestricted quests.</p>
+      </fieldset>
+    </details>
+  </form>
+  <div class="guide-layout">
+    <aside class="sidebar" aria-label="Elite chain navigation">
+      <div class="sidebar-heading">ELITE CHAINS <a href="#top">Back to top ↑</a></div>
+      <nav id="dungeon-nav" aria-label="Elite chain sections"><p class="muted">Loading elite chains…</p></nav>
+      <p class="local-note">Checkmarks stay in this browser, on this device. Quest progress is shared with the dungeon guide when the same quest appears in both.</p>
+    </aside>
+    <main id="results" tabindex="-1" aria-busy="true">
+      <div class="progress-panel">
+        <div><h2 id="results-heading">Your elite-chain checklist</h2><p id="result-summary" role="status" aria-live="polite" tabindex="-1">Loading quest data…</p></div>
+        <div class="progress-wrap"><label id="progress-label" for="quest-progress">Matching quests completed</label><progress id="quest-progress" value="0" max="1">0%</progress></div>
+      </div>
+      <div class="legend" aria-label="Prerequisite legend">
+        <span><b class="badge required">Required</b> Finish first</span>
+        <span><b class="badge optional">Optional breadcrumb</b> Not a hard gate</span>
+        <span><b class="badge none">None documented</b> No gate found</span>
+        <span><b class="badge unknown">Unknown</b> Confirm in game</span>
+      </div>
+      <div id="load-error" class="error-panel" role="alert" hidden>
+        <h2>The quest data could not be loaded.</h2>
+        <p id="load-error-detail"></p>
+        <p>Try reloading the page, or use the <a href="elites.md">Markdown guide</a>. A local copy must be served over HTTP rather than opened as a file.</p>
+        <button id="retry-load" type="button">Try again</button>
+      </div>
+      <div id="empty-state" class="empty-state" hidden><h2>No quests match these filters.</h2><p>Try another class or chain, broaden your search, or show completed quests. Quests with an unknown minimum level are never excluded by the level filter.</p><button id="empty-reset" type="button">Reset filters</button></div>
+      <div id="sections"></div>
+      <noscript><p class="error-panel">JavaScript is required for the interactive checklist. Read the complete <a href="elites.md">Markdown guide</a> instead.</p></noscript>
+    </main>
+  </div>
+  <footer class="site-footer"><p>A group-planning checklist, not an in-game eligibility or XP guarantee. Sources and uncertainty accompany each route.</p><p>No account, analytics, or external scripts. <a href="elite-quests.json">Read the source dataset</a>.</p></footer>
+</body>
+</html>

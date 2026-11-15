@@ -3,9 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
-const input = join(root, "quests.json");
-const output = join(root, "guide.md");
 const questUrl = (id) => `https://www.wowhead.com/forever/quest=${id}`;
+const allFactions = (value) => typeof value === "string" ? value : value.All;
 
 function text(value) {
   return String(value ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -35,6 +34,8 @@ function validate(value) {
     if (typeof section.slug !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(section.slug) || slugs.has(section.slug)) throw new Error(`Invalid or duplicate dungeon slug: ${section.slug}`);
     slugs.add(section.slug);
     if (typeof section.title !== "string" || !Array.isArray(section.before_travel) || !Array.isArray(section.quests) || !Array.isArray(section.sources)) throw new Error(`Incomplete dungeon: ${section.slug}`);
+    if (!section.level_range || !Number.isInteger(section.level_range.min) || !Number.isInteger(section.level_range.max) || section.level_range.min > section.level_range.max) throw new Error(`Invalid recommended range: ${section.slug}`);
+    if (section.before_travel.some((item) => typeof item.text !== "string" || typeof item.faction_class !== "string")) throw new Error(`Invalid preparation item: ${section.slug}`);
     for (const quest of section.quests) {
       if (!Number.isSafeInteger(quest.id) || quest.id <= 0 || typeof quest.name !== "string" || typeof quest.faction_class !== "string" || (quest.min_level !== null && (!Number.isFinite(quest.min_level) || quest.min_level < 1)) || !Array.isArray(quest.sources)) throw new Error(`Invalid quest entry in ${section.slug}: ${quest.id}`);
     }
@@ -42,17 +43,20 @@ function validate(value) {
   return value;
 }
 
-async function main() {
-  const data = validate(JSON.parse(await readFile(input, "utf8")));
+async function generate(inputName, outputName, isElite) {
+  const data = validate(JSON.parse(await readFile(join(root, inputName), "utf8")));
+  const sectionName = isElite ? "elite chain" : "dungeon";
+  const listHeading = isElite ? "Open-world elite chains" : "Dungeons";
+  const listAnchor = isElite ? "open-world-elite-chains" : "dungeons";
   const allQuests = data.sections.flatMap((section) => section.quests);
   const uniqueIds = new Set(allQuests.map((quest) => quest.id));
   const lines = [
     `# ${text(data.meta.title || "WoW Forever dungeon quest prerequisites")}`,
     "",
-    "> **Never arrive without the quest.** Check the pickup, finish the prerequisites, then head to the dungeon.",
+    isElite ? "> **Get the chain. Then get the group.** Collect the solo setup before tackling open-world elite objectives." : "> **Never arrive without the quest.** Check the pickup, finish the prerequisites, then head to the dungeon.",
     "",
     ...(data.meta.updated ? [`Updated: ${text(data.meta.updated)}`, ""] : []),
-    `${uniqueIds.size} unique quests across ${data.sections.length} dungeon sections (${allQuests.length} section entries). Repeated quest IDs across dungeon wings are intentional; completing one ID completes that quest everywhere.`,
+    `${uniqueIds.size} unique quests across ${data.sections.length} ${sectionName} sections (${allQuests.length} section entries). Repeated quest IDs are intentional; completing one ID completes that quest everywhere.`,
     "",
     "## Scope and evidence",
     "",
@@ -71,11 +75,12 @@ async function main() {
     "- **None documented** — no prerequisite was found in the consulted sources; this does not prove that none exists.",
     "- **Unknown** — the requirement is unresolved or conflicting; confirm in game.",
     "- **Min. ?** — minimum acceptance level is unconfirmed. The interactive guide keeps these quests visible at every level cap.",
+    "- **Heading level range** — recommended group levels, not minimum acceptance or entry requirements.",
     "- **Faction / class** — class-only restrictions apply to both factions unless a faction is explicitly included. Unrestricted quests apply to every class of the named faction.",
-    "- Complete each dungeon’s **Before you travel** checklist, then collect the target quests. Checkmarks in this Markdown copy are independent of the browser checklist.",
-    "- The [interactive checklist](./) defaults to Alliance, Warlock, and maximum acceptance level 59. It supports search, filters, and browser-local progress keyed by unique quest ID. This Markdown guide contains every dataset entry, without those filters.",
+    `- Complete each ${sectionName}’s **Before you travel** checklist, then collect the target quests. Checkmarks in this Markdown copy are independent of the browser checklist.`,
+    `- The [interactive checklist](${isElite ? "elites.html" : "./"}) defaults to Alliance, Warlock, and maximum acceptance level 59. It supports search, filters, and browser-local progress keyed by unique quest ID, shared across both guides. This Markdown copy contains every dataset entry and all faction variants, without those filters.`,
     "",
-    "## Dungeons",
+    `## ${listHeading}`,
     "",
     ...data.sections.map((section) => `- [${label(section.title)}](#${section.slug}) (${section.quests.length} ${section.quests.length === 1 ? "quest" : "quests"})`),
     "",
@@ -85,15 +90,18 @@ async function main() {
     lines.push(
       `<a id="${section.slug}"></a>`,
       "",
-      `## ${text(section.title)}`,
+      `## ${text(section.title)} — Levels ${section.level_range.min}–${section.level_range.max}`,
+      "",
+      text(section.level_range.note),
+      ...(section.summary ? ["", text(section.summary)] : []),
       "",
       "### Before you travel",
       "",
     );
     if (section.before_travel.length) {
       for (const item of section.before_travel) {
-        const content = String(item).replace(/^\s*(?:[-*]\s*)?(?:\[[ xX]\]\s*)?/, "");
-        lines.push(`- [ ] ${text(content).replace(/\r?\n/g, " ")}`);
+        const content = item.text.replace(/^\s*(?:[-*]\s*)?(?:\[[ xX]\]\s*)?/, "");
+        lines.push(`- [ ] **${text(item.faction_class)}** — ${text(content).replace(/\r?\n/g, " ")}`);
       }
     } else lines.push("- [ ] Review each pickup location and prerequisite chain below before leaving.");
     lines.push(
@@ -106,14 +114,14 @@ async function main() {
     for (const quest of section.quests) {
       const name = label(quest.name).replace(/\|/g, "\\|");
       const detail = [
-        cell(quest.prerequisites || "No prerequisite detail provided; confirm in game."),
-        ...(quest.notes ? [`**Notes:** ${cell(quest.notes)}`] : []),
+        cell(allFactions(quest.prerequisites) || "No prerequisite detail provided; confirm in game."),
+        ...(allFactions(quest.notes) ? [`**Notes:** ${cell(allFactions(quest.notes))}`] : []),
       ].join("<br><br>");
       const faction = quest.faction_class.replace(/(Druid|Hunter|Mage|Paladin|Priest|Rogue|Shaman|Warlock|Warrior)(Alliance|Horde)/g, "$1 · $2");
-      lines.push(`| [ ] | [${name}](${questUrl(quest.id)}) (#${quest.id}) | ${cell(faction)} | ${quest.min_level === null ? "?" : quest.min_level} | ${cell(quest.pickup || "Pickup unconfirmed; check sources.")} | ${cell(quest.prerequisite_status)} | ${detail} | ${sources(quest.sources, "<br>")} |`);
+      lines.push(`| [ ] | [${name}](${questUrl(quest.id)}) (#${quest.id}) | ${cell(faction)} | ${quest.min_level === null ? "?" : quest.min_level} | ${cell(allFactions(quest.pickup) || "Pickup unconfirmed; check sources.")} | ${cell(quest.prerequisite_status)} | ${detail} | ${sources(quest.sources, "<br>")} |`);
     }
     if (!section.quests.length) lines.push("", "No quests are documented for this section in the dataset.");
-    lines.push("", `Dungeon sources: ${sources(section.sources)}`, "", "[Back to dungeon list](#dungeons)", "");
+    lines.push("", `${isElite ? "Chain" : "Dungeon"} sources: ${sources(section.sources)}`, "", `[Back to ${sectionName} list](#${listAnchor})`, "");
   }
 
   lines.push("## Coverage notes", "");
@@ -122,12 +130,12 @@ async function main() {
   lines.push("", "## Confirmed minimum-60 exclusions", "");
   if (data.excluded_min60?.length) lines.push("These target quest IDs are excluded because their documented minimum acceptance level is 60:", "", data.excluded_min60.map((id) => `[${id}](${questUrl(id)})`).join(", "));
   else lines.push("No explicit minimum-60 exclusion IDs were supplied in this dataset.");
-  lines.push("", "---", "", "Generated from [quests.json](quests.json) by `generate-markdown.mjs`. Edit the JSON source, then regenerate this file; do not hand-edit generated quest tables.", "");
-  await writeFile(output, lines.join("\n"), "utf8");
-  console.log(`Generated guide.md: ${uniqueIds.size} unique quests, ${allQuests.length} section entries, ${data.sections.length} dungeons.`);
+  lines.push("", "---", "", `Generated from [${inputName}](${inputName}) by \`generate-markdown.mjs\`. Edit the JSON source, then regenerate this file; do not hand-edit generated quest tables.`, "");
+  await writeFile(join(root, outputName), lines.join("\n"), "utf8");
+  console.log(`Generated ${outputName}: ${uniqueIds.size} unique quests, ${allQuests.length} section entries, ${data.sections.length} ${sectionName}s.`);
 }
 
-main().catch((error) => {
-  console.error(`Could not generate guide.md: ${error.message}`);
+Promise.all([generate("quests.json", "guide.md", false), generate("elite-quests.json", "elites.md", true)]).catch((error) => {
+  console.error(`Could not generate Markdown guides: ${error.message}`);
   process.exitCode = 1;
 });

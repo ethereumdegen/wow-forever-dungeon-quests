@@ -1,6 +1,9 @@
 "use strict";
 
 const STORAGE_KEY = "wow-forever-dungeon-checklist-v1";
+const IS_ELITE = document.body.dataset.guide === "elites";
+const DATA_FILE = IS_ELITE ? "elite-quests.json" : "quests.json";
+const SECTION_NAME = IS_ELITE ? "elite chain" : "dungeon";
 const CLASS_NAMES = ["Druid", "Hunter", "Mage", "Paladin", "Priest", "Rogue", "Shaman", "Warlock", "Warrior"];
 const CLASS_PATTERN = new RegExp(CLASS_NAMES.join("|"), "gi");
 const byId = (id) => document.getElementById(id);
@@ -113,6 +116,37 @@ function matchesCharacter(alternatives, faction, characterClass) {
     (characterClass === "All" || !classes.length || classes.includes(characterClass))
   );
 }
+function fieldText(value, faction) {
+  return typeof value === "string" ? value : value?.[faction] || "";
+}
+
+function travelForCharacter(section, selection) {
+  return section.before_travel.filter((item) => matchesCharacter(restrictions(item.faction_class), selection.faction, selection.characterClass));
+}
+
+function updateFilterContext(selection) {
+  const faction = selection.faction === "All" ? "All factions" : selection.faction;
+  const characterClass = selection.characterClass === "All" ? "All classes" : selection.characterClass;
+  const extras = [selection.search.length ? "search" : "", selection.requiredOnly ? "prerequisites" : "", selection.hideCompleted ? "unfinished" : "", selection.dungeon !== "All" ? "one section" : ""].filter(Boolean);
+  byId("filter-summary").textContent = `${faction} · ${characterClass} · ≤${selection.maxLevel}${extras.length ? ` · ${extras.join(", ")}` : ""}`;
+  const params = new URLSearchParams({ faction: selection.faction, class: selection.characterClass, level: String(selection.maxLevel) });
+  document.querySelectorAll("[data-guide-link]").forEach((anchor) => {
+    const url = new URL(anchor.href);
+    url.search = params.toString();
+    anchor.href = url.href;
+  });
+}
+
+function readCharacterContext() {
+  const params = new URLSearchParams(location.search);
+  [["faction", "faction"], ["class", "character-class"]].forEach(([key, id]) => {
+    const value = params.get(key);
+    if ([...byId(id).options].some((option) => option.value === value)) byId(id).value = value;
+  });
+  const level = Number(params.get("level"));
+  if (Number.isInteger(level) && level >= 1 && level <= 60) byId("max-level").value = level;
+}
+
 
 function filters() {
   const level = Number(byId("max-level").value);
@@ -127,20 +161,23 @@ function filters() {
   };
 }
 
-function matchesQuest(row, section, selection) {
+function matchesQuest(row, section, selection, travelText) {
   const quest = row.quest;
-  return (selection.dungeon === "All" || section.slug === selection.dungeon) &&
-    matchesCharacter(row.restrictions, selection.faction, selection.characterClass) &&
-    (quest.min_level === null || quest.min_level <= selection.maxLevel) &&
-    (!selection.requiredOnly || quest.prerequisite_status === "Required") &&
-    selection.search.every((term) => row.searchText.includes(term));
+  if ((selection.dungeon !== "All" && section.slug !== selection.dungeon) ||
+    !matchesCharacter(row.restrictions, selection.faction, selection.characterClass) ||
+    (quest.min_level !== null && quest.min_level > selection.maxLevel) ||
+    (selection.requiredOnly && quest.prerequisite_status !== "Required")) return false;
+  if (!selection.search.length) return true;
+  const searchText = [section.title, section.zone, section.summary, travelText, quest.id, quest.name, quest.faction_class, quest.prerequisite_status,
+    ...["pickup", "prerequisites", "notes"].map((key) => fieldText(quest[key], selection.faction))].join(" ").toLocaleLowerCase();
+  return selection.search.every((term) => searchText.includes(term));
 }
 
 function statusClass(status) {
   return ({ Required: "required", "Optional breadcrumb": "optional", "None documented": "none", Unknown: "unknown" })[status] || "unknown";
 }
 
-function renderQuest(quest, sectionSlug, rowIndex) {
+function renderQuest(quest, sectionSlug, rowIndex, selection) {
   const item = element("li", `quest-card${completed.has(quest.id) ? " is-completed" : ""}`);
   item.dataset.questId = String(quest.id);
   const top = element("div", "quest-top");
@@ -183,20 +220,21 @@ function renderQuest(quest, sectionSlug, rowIndex) {
     group.append(element("dt", null, heading), description);
     facts.append(group);
   };
-  addFact("Pick up from", quest.pickup || "Pickup location unconfirmed; check sources.");
-  addFact("Prerequisite chain", quest.prerequisites || "No prerequisite detail provided; confirm in game.");
-  if (quest.notes) addFact("Travel & quest notes", quest.notes, "quest-notes");
+  addFact("Pick up from", fieldText(quest.pickup, selection.faction) || "Pickup location unconfirmed; check sources.");
+  addFact("Prerequisite chain", fieldText(quest.prerequisites, selection.faction) || "No prerequisite detail provided; confirm in game.");
+  const notes = fieldText(quest.notes, selection.faction);
+  if (notes) addFact("Travel & quest notes", notes, "quest-notes");
   const sources = element("div", "quest-sources");
   sources.append(document.createTextNode("Quest evidence: "), sourceLinks(quest.sources));
   item.append(top, facts, sources);
   return item;
 }
 
-function renderBeforeTravel(section) {
+function renderBeforeTravel(section, travelItems) {
   const box = element("div", "before-travel");
   box.append(element("h3", null, "Before you travel"));
   const list = element("ul");
-  section.before_travel.forEach((value, index) => {
+  travelItems.forEach(({ text: value }, index) => {
     const text = value.replace(/^\s*(?:[-*]\s*)?(?:\[[ xX]\]\s*)?/, "");
     const key = `${section.slug}:${text}`;
     const item = element("li", "travel-item");
@@ -215,7 +253,7 @@ function renderBeforeTravel(section) {
     item.append(checkbox, label);
     list.append(item);
   });
-  if (!section.before_travel.length) list.append(element("li", null, "Review the pickup and prerequisite details below before leaving."));
+  if (!travelItems.length) list.append(element("li", null, "No character-specific preparation listed. Review the matching quest details below."));
   box.append(list);
   return box;
 }
@@ -234,12 +272,15 @@ function updateProgress() {
 function render() {
   if (!data) return;
   const selection = filters();
+  updateFilterContext(selection);
   matchingIds = new Set();
   let visibleRows = 0;
   const fragment = document.createDocumentFragment();
   const navList = element("ul");
   indexedSections.forEach(({ section, rows }) => {
-    const matching = rows.filter((row) => matchesQuest(row, section, selection));
+    const travelItems = travelForCharacter(section, selection);
+    const travelText = travelItems.map((item) => item.text).join(" ");
+    const matching = rows.filter((row) => matchesQuest(row, section, selection, travelText));
     matching.forEach(({ quest }) => matchingIds.add(quest.id));
     const visible = matching.filter(({ quest }) => !selection.hideCompleted || !completed.has(quest.id));
     if (!visible.length && selection.dungeon !== section.slug) return;
@@ -250,18 +291,20 @@ function render() {
     const header = element("div", "dungeon-header");
     const heading = element("h2");
     heading.id = `heading-${section.slug}`;
-    const anchor = element("a", null, section.title);
+    const anchor = element("a", null, `${section.title} — Levels ${section.level_range.min}–${section.level_range.max}`);
     anchor.href = `#${encodeURIComponent(section.slug)}`;
     heading.append(anchor);
     header.append(heading, element("span", "dungeon-count", `${visible.length} ${visible.length === 1 ? "quest" : "quests"}`));
-    block.append(header, renderBeforeTravel(section));
+    block.append(header, element("p", "level-context", section.level_range.note));
+    if (section.summary) block.append(element("p", "section-summary", section.summary));
+    block.append(renderBeforeTravel(section, travelItems));
     if (visible.length) {
       const list = element("ul", "quest-list");
-      visible.forEach(({ quest }, index) => list.append(renderQuest(quest, section.slug, index)));
+      visible.forEach(({ quest }, index) => list.append(renderQuest(quest, section.slug, index, selection)));
       block.append(list);
-    } else block.append(element("p", "muted", "No quests in this dungeon match your current filters."));
+    } else block.append(element("p", "muted", `No quests in this ${SECTION_NAME} match your current filters.`));
     const evidence = element("p", "dungeon-sources");
-    evidence.append(document.createTextNode("Dungeon sources: "), sourceLinks(section.sources));
+    evidence.append(document.createTextNode(IS_ELITE ? "Chain sources: " : "Dungeon sources: "), sourceLinks(section.sources));
     block.append(evidence);
     fragment.append(block);
     const navItem = element("li");
@@ -273,7 +316,7 @@ function render() {
     navList.append(navItem);
   });
   byId("sections").replaceChildren(fragment);
-  byId("dungeon-nav").replaceChildren(navList.childElementCount ? navList : element("p", "muted", "No matching dungeons."));
+  byId("dungeon-nav").replaceChildren(navList.childElementCount ? navList : element("p", "muted", `No matching ${SECTION_NAME}s.`));
   byId("empty-state").hidden = visibleRows !== 0;
   updateProgress();
 }
@@ -330,14 +373,19 @@ function renderSourceNotes() {
 }
 
 function validateData(value) {
+  const isField = (field) => typeof field === "string" || (field && ["All", "Alliance", "Horde"].every((faction) => typeof field[faction] === "string"));
   if (!value || !value.meta || !Array.isArray(value.sections)) throw new Error("The quest dataset does not have the expected structure.");
   const slugs = new Set();
   value.sections.forEach((section) => {
     if (typeof section.slug !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(section.slug) || slugs.has(section.slug) || document.getElementById(section.slug)) throw new Error("The dataset contains an invalid or duplicate dungeon anchor.");
     slugs.add(section.slug);
     if (typeof section.title !== "string" || !Array.isArray(section.quests) || !Array.isArray(section.before_travel) || !Array.isArray(section.sources)) throw new Error("A dungeon entry is incomplete.");
+    const range = section.level_range;
+    if (!range || !Number.isInteger(range.min) || !Number.isInteger(range.max) || range.min < 1 || range.max < range.min || range.max > 60 || typeof range.note !== "string") throw new Error("A section has an invalid recommended level range.");
+    if (section.before_travel.some((item) => !item || typeof item.text !== "string" || typeof item.faction_class !== "string")) throw new Error("A preparation entry is missing its text or character restriction.");
     section.quests.forEach((quest) => {
       if (!Number.isSafeInteger(quest.id) || quest.id <= 0 || typeof quest.name !== "string" || typeof quest.faction_class !== "string" || (quest.min_level !== null && (!Number.isFinite(quest.min_level) || quest.min_level < 1)) || !Array.isArray(quest.sources)) throw new Error("A quest entry is incomplete or has an invalid acceptance level.");
+      if (!["pickup", "prerequisites", "notes"].every((key) => isField(quest[key]))) throw new Error("A quest has invalid faction-specific details.");
     });
   });
   return value;
@@ -352,20 +400,19 @@ async function load() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const response = await fetch("quests.json", { signal: controller.signal });
-    if (!response.ok) throw new Error(`The server returned HTTP ${response.status} for quests.json.`);
+    const response = await fetch(`${DATA_FILE}?v=3`, { signal: controller.signal });
+    if (!response.ok) throw new Error(`The server returned HTTP ${response.status} for ${DATA_FILE}.`);
     data = validateData(await response.json());
     indexedSections = data.sections.map((section) => ({
       section,
       rows: section.quests.map((quest) => ({
         quest,
         restrictions: restrictions(quest.faction_class),
-        searchText: [section.title, ...section.before_travel, quest.id, quest.name, quest.faction_class, quest.pickup, quest.prerequisite_status, quest.prerequisites, quest.notes].join(" ").toLocaleLowerCase(),
       })),
     }));
     byId("dataset-meta").textContent = `${data.meta.title || "Dungeon quest checklist"}${data.meta.updated ? ` · Updated ${data.meta.updated}` : ""}`;
     const dungeonSelect = byId("dungeon");
-    dungeonSelect.replaceChildren(new Option("All dungeons", "All"));
+    dungeonSelect.replaceChildren(new Option(IS_ELITE ? "All elite chains" : "All dungeons", "All"));
     data.sections.forEach((section) => dungeonSelect.add(new Option(section.title, section.slug)));
     renderSourceNotes();
     byId("filter-fields").disabled = false;
@@ -373,9 +420,9 @@ async function load() {
     navigateToHash();
   } catch (error) {
     byId("load-error").hidden = false;
-    byId("load-error-detail").textContent = error.name === "AbortError" ? "Loading quests.json timed out. Check your connection and try again." : error.message;
+    byId("load-error-detail").textContent = error.name === "AbortError" ? `Loading ${DATA_FILE} timed out. Check your connection and try again.` : error.message;
     byId("result-summary").textContent = "Quest data unavailable.";
-    byId("dungeon-nav").replaceChildren(element("p", "muted", "Dungeon data unavailable."));
+    byId("dungeon-nav").replaceChildren(element("p", "muted", "Quest data unavailable."));
   } finally {
     clearTimeout(timer);
     byId("results").setAttribute("aria-busy", "false");
@@ -388,6 +435,8 @@ function resetFilters() {
   render();
 }
 
+byId("filter-panel").open = !window.matchMedia("(max-width: 760px), (max-height: 500px) and (max-width: 1000px)").matches;
+readCharacterContext();
 byId("filters").addEventListener("submit", (event) => event.preventDefault());
 byId("search").addEventListener("input", render);
 byId("max-level").addEventListener("input", render);

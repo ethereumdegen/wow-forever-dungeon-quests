@@ -8,13 +8,17 @@
   <meta name="theme-color" content="#101216">
   <title>WoW Forever · Dungeon quest checklist</title>
   <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2">
-  <script src="app.js" defer></script>
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script src="app.js?v=3" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#results">Skip to quests</a>
   <header class="site-header" id="top">
     <div class="eyebrow">WOW FOREVER / DUNGEON FIELD GUIDE</div>
+    <nav class="guide-tabs" aria-label="Choose a guide">
+      <a href="./" data-guide-link aria-current="page">Dungeon quests</a>
+      <a href="elites.html" data-guide-link>Open-world elites</a>
+    </nav>
     <h1>Never arrive without the quest.</h1>
     <p class="intro">Check the pickup. Finish the prerequisites. Then head to the dungeon.</p>
     <div class="header-bottom">
@@ -28,7 +32,7 @@
 
   <section class="source-notice" aria-labelledby="source-heading">
     <h2 id="source-heading">Check the evidence before you travel.</h2>
-    <p>WoW Forever can differ from other versions of WoW. “None documented” is not proof that no prerequisite exists. Unknown requirements and acceptance levels remain visible; <strong>?</strong> means the minimum acceptance level is unconfirmed. Quest level is not minimum acceptance level. Follow the linked evidence and confirm uncertain steps in game.</p>
+    <p>WoW Forever can differ from other versions of WoW. “None documented” is not proof that no prerequisite exists. Unknown requirements and acceptance levels remain visible; <strong>?</strong> means the minimum acceptance level is unconfirmed. Heading ranges are recommended group levels, not unlock requirements. Follow the linked evidence and confirm uncertain steps in game.</p>
     <details id="source-details">
       <summary>Scope, coverage &amp; source notes</summary>
       <div id="source-content"><p>The dataset’s source notes will appear here after loading.</p></div>
@@ -37,6 +41,8 @@
   <p id="storage-warning" class="warning" role="status" hidden></p>
 
   <form class="filters" id="filters" aria-label="Filter dungeon quests">
+    <details id="filter-panel" open>
+      <summary>Character &amp; filters <span id="filter-summary">Alliance · Warlock · ≤59</span></summary>
     <fieldset id="filter-fields" disabled>
       <legend class="sr-only">Your character and quest filters</legend>
       <div class="filter-grid">
@@ -65,6 +71,7 @@
       </div>
       <p id="level-help" class="filter-help">Acceptance level, not quest level. Unknown minimums stay visible. Your class also includes unrestricted quests.</p>
     </fieldset>
+    </details>
   </form>
 
   <div class="guide-layout">
