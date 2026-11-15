@@ -18,7 +18,13 @@ bun generate-markdown.mjs
 
 The generator resolves paths relative to its own location, reads `quests.json`, and writes `guide.md`. It requires a current Node.js or Bun runtime and only uses built-in modules. No package installation or site build is required. Do not hand-edit generated quest tables.
 
-For GitHub Pages, publish this directory as the site root, including `index.html`, `styles.css`, `app.js`, `quests.json`, `guide.md`, and `.nojekyll`. All site assets and download links use relative paths, so repository-subpath Pages hosting works. Configure Pages to deploy the repository root or upload that directory as a Pages artifact. Do not publish credentials or research tooling.
+For GitHub Pages, publish this directory as the site root, including `index.html`, `styles.css`, `app.js`, `quests.json`, `guide.md`, `.nojekyll`, and the `fonts/` directory. All site assets and download links use relative paths, so repository-subpath Pages hosting works. Configure Pages to deploy the repository root or upload that directory as a Pages artifact. Do not publish credentials or research tooling.
+
+## Theme and typography
+
+The screen theme is always dark: charcoal surfaces, restrained blue accents, gold headings and quest titles, and off-white body text. It does not switch to a light theme with the operating-system preference; printing uses a separate light palette.
+
+Geist is served locally from `fonts/Geist-Variable.woff2`, with no third-party font request. The unmodified variable font comes from [Vercel’s Geist font project](https://github.com/vercel/geist-font), font blob `71dab8bedba3bfef5dccd7875ed05cac44c7345d`, and is redistributed under the [SIL Open Font License](fonts/OFL.txt).
 
 ## Filters and saved progress
 
@@ -54,3 +60,4 @@ Travel items, pickups, chains, and notes may contain Markdown-style `[label](htt
 - `generate-markdown.mjs`: complete unfiltered guide generator.
 - `guide.md`: generated downloadable guide with scope, legend, table of contents, travel checklists, quest tables, sources, and exclusions.
 - `.nojekyll`: bypasses Jekyll processing on GitHub Pages.
+- `fonts/Geist-Variable.woff2`, `fonts/OFL.txt`: self-hosted Geist variable font and its redistribution license.
